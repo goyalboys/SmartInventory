@@ -1,37 +1,35 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
-const User = require("../models/User");
 const { createNotification } = require("../utils/notifications");
+const { issueRazorpayRefund } = require("../utils/razorpayRefund");
+const { buildOrderItems, deductStock, createOrderRecord } = require("../utils/orderHelpers");
 
-const processPayment = (paymentMethod, paymentDetails) => {
-  if (paymentMethod === "cod") {
-    return { success: true, status: "pending" };
+const restoreOrderStock = async (order) => {
+  for (const item of order.items) {
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: { quantity: item.quantity },
+    });
+  }
+};
+
+const processPaidOrderRefund = async (order) => {
+  if (order.paymentMethod === "razorpay" && order.paymentStatus === "paid") {
+    const refund = await issueRazorpayRefund(order);
+    order.razorpayRefundId = refund.id;
+    order.paymentStatus = "refunded";
+    return refund;
   }
 
-  if (!paymentDetails?.reference) {
-    return { success: false, message: "Payment reference is required" };
+  if (order.paymentStatus === "paid") {
+    order.paymentStatus = "refunded";
   }
 
-  if (paymentMethod === "upi" && paymentDetails.reference.length < 6) {
-    return { success: false, message: "Invalid UPI transaction ID" };
-  }
-
-  if (paymentMethod === "card") {
-    const { cardNumber, expiry, cvv } = paymentDetails;
-    if (!cardNumber || !expiry || !cvv) {
-      return { success: false, message: "Complete card details are required" };
-    }
-    if (cardNumber.replace(/\s/g, "").length < 13) {
-      return { success: false, message: "Invalid card number" };
-    }
-  }
-
-  return { success: true, status: "paid" };
+  return null;
 };
 
 const placeOrder = async (req, res) => {
   try {
-    const { merchantId, items, paymentMethod, paymentDetails, deliveryAddress } = req.body;
+    const { merchantId, items, paymentMethod, deliveryAddress } = req.body;
 
     if (!merchantId || !items?.length || !paymentMethod || !deliveryAddress) {
       return res.status(400).json({
@@ -39,77 +37,31 @@ const placeOrder = async (req, res) => {
       });
     }
 
-    const paymentResult = processPayment(paymentMethod, paymentDetails);
-
-    if (!paymentResult.success) {
-      return res.status(400).json({ message: paymentResult.message });
-    }
-
-    const orderItems = [];
-    let total = 0;
-
-    for (const item of items) {
-      const product = await Product.findOne({ _id: item.productId, merchant: merchantId });
-
-      if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.productId}` });
-      }
-
-      if (product.quantity < item.quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}. Available: ${product.quantity}`,
-        });
-      }
-
-      orderItems.push({
-        product: product._id,
-        name: product.name,
-        price: product.price,
-        quantity: item.quantity,
-        category: product.category || "other",
-        subcategory: product.subcategory || "",
-      });
-
-      total += product.price * item.quantity;
-    }
-
-    for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { quantity: -item.quantity },
+    if (paymentMethod !== "cod") {
+      return res.status(400).json({
+        message: "Online payments must use Razorpay checkout",
       });
     }
 
-    const order = await Order.create({
-      customer: req.userId,
-      merchant: merchantId,
-      items: orderItems,
+    const result = await buildOrderItems(merchantId, items);
+
+    if (result.error) {
+      return res.status(result.error.status).json({ message: result.error.message });
+    }
+
+    const { orderItems, total } = result;
+
+    await deductStock(orderItems);
+
+    const populatedOrder = await createOrderRecord({
+      customerId: req.userId,
+      merchantId,
+      orderItems,
       total,
-      paymentMethod,
-      paymentStatus: paymentResult.status,
+      paymentMethod: "cod",
+      paymentStatus: "pending",
       deliveryAddress,
     });
-
-    const customer = await User.findById(req.userId).select("name");
-
-    await createNotification({
-      userId: merchantId,
-      title: "New order received",
-      message: `${customer.name} placed an order worth $${total.toFixed(2)}`,
-      type: "order_placed",
-      orderId: order._id,
-    });
-
-    await createNotification({
-      userId: req.userId,
-      title: "Order placed successfully",
-      message: `Your order #${order._id.toString().slice(-6)} has been placed.`,
-      type: "order_placed",
-      orderId: order._id,
-    });
-
-    const populatedOrder = await Order.findById(order._id)
-      .populate("customer", "name email")
-      .populate("merchant", "name email");
 
     res.status(201).json({ order: populatedOrder });
   } catch (error) {
@@ -180,14 +132,15 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (status === "cancelled" && order.status !== "cancelled") {
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(item.product, {
-          $inc: { quantity: item.quantity },
-        });
-      }
+      await restoreOrderStock(order);
 
-      if (order.paymentStatus === "paid") {
-        order.paymentStatus = "refunded";
+      try {
+        await processPaidOrderRefund(order);
+      } catch (refundError) {
+        console.error(refundError);
+        return res.status(refundError.statusCode || 500).json({
+          message: refundError.message || "Failed to process refund",
+        });
       }
     }
 
@@ -200,8 +153,11 @@ const updateOrderStatus = async (req, res) => {
 
     await createNotification({
       userId: order.customer,
-      title: "Order status updated",
-      message: `Your order is now ${status}.`,
+      title: status === "cancelled" ? "Order cancelled" : "Order status updated",
+      message:
+        status === "cancelled" && order.paymentStatus === "refunded"
+          ? `Your order was cancelled and ₹${order.total.toFixed(2)} has been refunded.`
+          : `Your order is now ${status}.`,
       type: "order_status",
       orderId: order._id,
     });
@@ -217,9 +173,59 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+const refundOrder = async (req, res) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.id, merchant: req.userId });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.status === "cancelled") {
+      return res.status(400).json({ message: "Cancelled orders cannot be refunded again" });
+    }
+
+    const refund = await processPaidOrderRefund(order);
+
+    if (!refund && order.paymentMethod === "razorpay") {
+      return res.status(400).json({ message: "This order is not eligible for a Razorpay refund" });
+    }
+
+    if (order.status !== "cancelled") {
+      await restoreOrderStock(order);
+      order.status = "cancelled";
+    }
+
+    await order.save();
+
+    await createNotification({
+      userId: order.customer,
+      title: "Refund processed",
+      message: `₹${order.total.toFixed(2)} has been refunded for your order #${order._id.toString().slice(-6)}.`,
+      type: "order_status",
+      orderId: order._id,
+    });
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate("customer", "name email")
+      .populate("merchant", "name email");
+
+    res.json({
+      order: populatedOrder,
+      refundId: refund?.id || null,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({
+      message: error.message || "Refund failed",
+    });
+  }
+};
+
 module.exports = {
   placeOrder,
   getMyOrders,
   getIncomingOrders,
   updateOrderStatus,
+  refundOrder,
 };

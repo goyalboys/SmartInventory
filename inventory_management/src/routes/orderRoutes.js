@@ -6,6 +6,7 @@ const {
   getMyOrders,
   getIncomingOrders,
   updateOrderStatus,
+  refundOrder,
 } = require("../controllers/orderController");
 
 const router = express.Router();
@@ -14,5 +15,6 @@ router.post("/", authMiddleware, requireRole("customer"), placeOrder);
 router.get("/my", authMiddleware, requireRole("customer"), getMyOrders);
 router.get("/incoming", authMiddleware, requireRole("merchant"), getIncomingOrders);
 router.patch("/:id/status", authMiddleware, requireRole("merchant"), updateOrderStatus);
+router.post("/:id/refund", authMiddleware, requireRole("merchant"), refundOrder);
 
 module.exports = router;

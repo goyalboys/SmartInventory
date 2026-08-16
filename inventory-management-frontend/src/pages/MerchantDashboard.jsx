@@ -41,6 +41,7 @@ function MerchantDashboard() {
   const [productTypeFilter, setProductTypeFilter] = useState("");
   const [productSubFilter, setProductSubFilter] = useState("");
   const [newProfileCategory, setNewProfileCategory] = useState("");
+  const [refundingOrderId, setRefundingOrderId] = useState(null);
 
   useEffect(() => {
     const nextTab = searchParams.get("tab") || "products";
@@ -262,6 +263,13 @@ function MerchantDashboard() {
   };
 
   const updateOrderStatus = async (orderId, status) => {
+    const message =
+      status === "cancelled"
+        ? "Cancel this order? Paid Razorpay orders will be refunded automatically."
+        : null;
+
+    if (message && !window.confirm(message)) return;
+
     try {
       await api.patch(`/orders/${orderId}/status`, { status });
       await loadOrders();
@@ -270,6 +278,34 @@ function MerchantDashboard() {
       alert(error.response?.data?.message || "Failed to update order");
     }
   };
+
+  const handleRefund = async (order) => {
+    if (
+      !window.confirm(
+        `Refund ₹${order.total.toFixed(2)} to ${order.customer?.name}? The order will be cancelled and stock restored.`
+      )
+    ) {
+      return;
+    }
+
+    setRefundingOrderId(order._id);
+
+    try {
+      await api.post(`/orders/${order._id}/refund`);
+      await loadOrders();
+      await loadProducts();
+      alert("Refund processed successfully");
+    } catch (error) {
+      alert(error.response?.data?.message || "Refund failed");
+    } finally {
+      setRefundingOrderId(null);
+    }
+  };
+
+  const canRefundOrder = (order) =>
+    order.paymentMethod === "razorpay" &&
+    order.paymentStatus === "paid" &&
+    order.status !== "cancelled";
 
   if (loading) {
     return (
@@ -464,7 +500,7 @@ function MerchantDashboard() {
                         </td>
                         <td>{formatCategory(product.category)}</td>
                         <td>{product.subcategory ? formatCategory(product.subcategory) : "—"}</td>
-                        <td>${product.price.toFixed(2)}</td>
+                        <td>₹{product.price.toFixed(2)}</td>
                         <td>{product.quantity}</td>
                         <td className="actions">
                           <button
@@ -555,7 +591,7 @@ function MerchantDashboard() {
                     {order.items.map((item) => (
                       <li key={`${order._id}-${item.product}`}>
                         <span className="order-item-main">
-                          {item.name} x {item.quantity} — ${(item.price * item.quantity).toFixed(2)}
+                          {item.name} x {item.quantity} — ₹{(item.price * item.quantity).toFixed(2)}
                         </span>
                         {item.category && (
                           <span className="chip active order-type-chip">
@@ -568,7 +604,7 @@ function MerchantDashboard() {
                   </ul>
 
                   <div className="order-footer">
-                    <strong>Total: ${order.total.toFixed(2)}</strong>
+                    <strong>Total: ₹{order.total.toFixed(2)}</strong>
                     <div className="form-actions">
                       {order.status === "pending" && (
                         <>
@@ -604,6 +640,16 @@ function MerchantDashboard() {
                           onClick={() => updateOrderStatus(order._id, "delivered")}
                         >
                           Mark delivered
+                        </button>
+                      )}
+                      {canRefundOrder(order) && (
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          disabled={refundingOrderId === order._id}
+                          onClick={() => handleRefund(order)}
+                        >
+                          {refundingOrderId === order._id ? "Refunding..." : "Refund payment"}
                         </button>
                       )}
                     </div>

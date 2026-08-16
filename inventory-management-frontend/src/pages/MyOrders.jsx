@@ -139,7 +139,7 @@ function MyOrders() {
                 {order.items.map((item) => (
                   <li key={`${order._id}-${item.product}`}>
                     <span className="order-item-main">
-                      {item.name} x {item.quantity} — ${(item.price * item.quantity).toFixed(2)}
+                      {item.name} x {item.quantity} — ₹{(item.price * item.quantity).toFixed(2)}
                     </span>
                     {item.category && (
                       <span className="chip active order-type-chip">
@@ -152,7 +152,7 @@ function MyOrders() {
               </ul>
 
               <div className="order-footer">
-                <strong>Total: ${order.total.toFixed(2)}</strong>
+                <strong>Total: ₹{order.total.toFixed(2)}</strong>
               </div>
             </article>
           ))}

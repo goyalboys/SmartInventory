@@ -170,7 +170,7 @@ function Storefront() {
                     <p className="muted small">{product.description}</p>
                   )}
                   <p className="price-label">Price</p>
-                  <p className="price">${product.price.toFixed(2)}</p>
+                  <p className="price">₹{product.price.toFixed(2)}</p>
                   <p className="stock-badge">● {product.quantity} in stock</p>
                   <button
                     type="button"
