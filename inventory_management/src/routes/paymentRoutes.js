@@ -4,7 +4,6 @@ const requireRole = require("../middleware/roleMiddleware");
 const {
   createRazorpayOrder,
   verifyRazorpayPayment,
-  getRazorpayKey,
 } = require("../controllers/paymentController");
 
 const router = express.Router();

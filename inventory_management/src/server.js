@@ -14,6 +14,7 @@ const productRoutes = require("./routes/productRoutes.js");
 const orderRoutes = require("./routes/orderRoutes.js");
 const paymentRoutes = require("./routes/paymentRoutes.js");
 const notificationRoutes = require("./routes/notificationRoutes.js");
+const chatbotRoutes = require("./routes/chatbotRoutes.js");
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/chatbot", chatbotRoutes);
 
 const PORT = process.env.PORT || 5000;
 

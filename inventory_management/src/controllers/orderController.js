@@ -132,8 +132,6 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (status === "cancelled" && order.status !== "cancelled") {
-      await restoreOrderStock(order);
-
       try {
         await processPaidOrderRefund(order);
       } catch (refundError) {
@@ -142,6 +140,8 @@ const updateOrderStatus = async (req, res) => {
           message: refundError.message || "Failed to process refund",
         });
       }
+
+      await restoreOrderStock(order);
     }
 
     if (status === "delivered" && order.paymentMethod === "cod" && order.paymentStatus === "pending") {

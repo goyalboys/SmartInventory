@@ -68,6 +68,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+
         </Routes>
       </BrowserRouter>
     </CartProvider>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import { useCart } from "../context/CartContext";
 import NotificationsBell from "./NotificationsBell";
+import ChatWidget from "./ChatWidget";
 
 function Layout({ children, role }) {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ function Layout({ children, role }) {
       </header>
 
       <main className="page">{children}</main>
+      <ChatWidget />
     </div>
   );
 }
