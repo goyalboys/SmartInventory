@@ -154,7 +154,7 @@ const runAgent = async ({
         candidate.content;
 
         console.log("++++++++++++++++++++++++++++++++");
-        console.log(modelContent);
+        console.log(JSON.stringify(response, null, 2));
         console.log("########################")
 
       /**
@@ -175,9 +175,6 @@ const runAgent = async ({
           .map(
             (part) => part.functionCall
           ) || [];
-          console.log("++++++++++++++++++++++++++++++++");
-          console.log(modelContent.parts);
-          console.log("____________________________");
 
       /**
        * No tool call = final response.
@@ -242,6 +239,7 @@ const runAgent = async ({
             call.args || {},
             toolContext
           );
+          console.log("Tool Result: ", JSON.stringify(toolResult, null, 2));
 
           recordToolCall(trace, {
             name: call.name,
