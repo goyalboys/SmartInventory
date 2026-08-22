@@ -1,7 +1,7 @@
 const express = require("express");
 const authMiddleware = require("../middleware/authMiddleware");
 const requireRole = require("../middleware/roleMiddleware");
-const upload = require("../middleware/uploadMiddleware");
+const { uploadSingle } = require("../middleware/uploadMiddleware");
 const {
   getPublicCategories,
   getMerchantCategories,
@@ -28,8 +28,8 @@ router.get("/categories/merchant/:merchantId", getMerchantCategories);
 router.get("/merchant/:merchantId", getMerchantProducts);
 
 router.get("/my", authMiddleware, requireRole("merchant"), getMyProducts);
-router.post("/", authMiddleware, requireRole("merchant"), upload.single("image"), createProduct);
-router.put("/:id", authMiddleware, requireRole("merchant"), upload.single("image"), updateProduct);
+router.post("/", authMiddleware, requireRole("merchant"), uploadSingle("image"), createProduct);
+router.put("/:id", authMiddleware, requireRole("merchant"), uploadSingle("image"), updateProduct);
 router.delete("/:id", authMiddleware, requireRole("merchant"), deleteProduct);
 
 module.exports = router;

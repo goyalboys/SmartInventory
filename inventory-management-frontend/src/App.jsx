@@ -13,6 +13,7 @@ import Merchants from "./pages/Merchants";
 import Storefront from "./pages/Storefront";
 import Cart from "./pages/Cart";
 import MyOrders from "./pages/MyOrders";
+import AiDebug from "./pages/AiDebug";
 import "./App.css";
 
 function App() {
@@ -65,6 +66,15 @@ function App() {
             element={
               <ProtectedRoute role="customer">
                 <MyOrders />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/ai-debug"
+            element={
+              <ProtectedRoute>
+                <AiDebug />
               </ProtectedRoute>
             }
           />

@@ -1,4 +1,6 @@
-export const API_BASE = "http://localhost:5000";
+import { API_BASE } from "../services/api";
+
+export { API_BASE };
 
 export const DEFAULT_SUBCATEGORIES = {
   electronics: ["ac", "fridge", "tv", "mobile", "laptop", "washing-machine", "microwave"],

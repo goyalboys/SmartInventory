@@ -208,14 +208,11 @@ function MerchantDashboard() {
     if (imageFile) payload.append("image", imageFile);
 
     try {
+      // Do NOT set Content-Type manually — axios must add the multipart boundary.
       if (editingId) {
-        await api.put(`/products/${editingId}`, payload, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.put(`/products/${editingId}`, payload);
       } else {
-        await api.post("/products", payload, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post("/products", payload);
       }
 
       resetForm();

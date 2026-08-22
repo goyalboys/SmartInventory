@@ -41,6 +41,7 @@ function Layout({ children, role }) {
             <>
               <Link to="/merchant">My Inventory</Link>
               <Link to="/merchant?tab=profile">Store Profile</Link>
+              <Link to="/ai-debug">AI Debug</Link>
             </>
           )}
 
@@ -49,6 +50,7 @@ function Layout({ children, role }) {
               <Link to="/merchants">Stores</Link>
               <Link to="/orders">My Orders</Link>
               <Link to="/cart">Cart {cartCount > 0 && `(${cartCount})`}</Link>
+              <Link to="/ai-debug">AI Debug</Link>
             </>
           )}
         </nav>
