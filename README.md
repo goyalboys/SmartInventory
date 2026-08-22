@@ -4,6 +4,9 @@ An e-commerce / inventory management application extended with a production-orie
 
 Creds: user@gmail.com Admin@123
 
+<img width="2560" height="1598" alt="image" src="https://github.com/user-attachments/assets/65074fd5-f14d-4ef2-8f8e-c1f824e52e4f" />
+
+
 
 The assistant lives in the chat widget and can:
 
